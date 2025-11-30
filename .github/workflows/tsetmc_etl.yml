@@ -1,0 +1,40 @@
+name: TSETMC ETL
+
+on:
+  schedule:
+    - cron: "35 9 * * *"   # 12:35 IRST
+    - cron: "00 14 * * *"  # 18:00 IRST
+  workflow_dispatch:
+
+jobs:
+  fetch-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Type 1 fetch
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          API_KEY: ${{ secrets.API_KEY }}
+        run: python src/fetch_type1.py
+
+      - name: Run Type 0 fetch
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          API_KEY: ${{ secrets.API_KEY }}
+        run: python src/fetch_type0.py
