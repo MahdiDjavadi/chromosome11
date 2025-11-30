@@ -1,0 +1,11 @@
+# Byte-compiled / cache files
+__pycache__/
+
+# Environment and secrets
+.env
+
+# OS / IDE junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
