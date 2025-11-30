@@ -1,0 +1,11 @@
+# --- Core dependencies ---
+mysql-connector-python>=9.0.0
+python-dotenv>=1.0.1
+requests>=2.32.3
+
+# --- Optional for data processing ---
+pandas>=2.2.2
+
+# --- For logging and JSON handling ---
+rich>=13.9.1
+# requirements.txt additions (append these lines)
