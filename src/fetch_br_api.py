@@ -1,51 +1,50 @@
-# src/fetch_br_api.py
+# src/fetch_br_test.py
 import os
 import requests
-import json
-from db import get_connection  # همان db.py که SSL و CI درست دارد
+from utils_db import upsert, get_connection  # فرض بر این است utils_db همان کد پایدار دیتابیس شماست
+from dotenv import load_dotenv
 
-# Mapping type → table
-TABLE_MAP = {
-    0: "symbol_price",
-    1: "symbol_deals"
-}
+load_dotenv()  # بارگذاری .env
 
-# User-Agent واقعی برای جلوگیری از بلاک شدن
+API_KEY = os.getenv("BRSAPI_API_KEY")
+SYMBOL = "فملی"  # یک نماد برای تست
+TYPE = 0  # یا 1
+URL = f"https://brsapi.ir/Api/Tsetmc/History.php?key={API_KEY}&type={TYPE}&l18={SYMBOL}"
+
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/142.0.0.0 Safari/537.36"
 }
 
-def fetch_br_api(type_id: int):
-    if type_id not in TABLE_MAP:
-        raise ValueError("Invalid type_id, must be 0 or 1")
+def fetch_and_insert():
+    try:
+        response = requests.get(URL, headers=HEADERS, timeout=10)
+        response.raise_for_status()  # اگر status != 200 باشد Exception ایجاد می‌کند
 
-    url = f"https://api.brs.example.com/data?type={type_id}"  # جایگزین با لینک واقعی
-    response = requests.get(url, headers=HEADERS)
-    response.raise_for_status()
-    data = response.json()  # فرض JSON Array از دیکشنری‌ها
+        data = response.json()  # فرض بر این است که API JSON می‌دهد
+        print("✅ Fetch successful:", data)
 
-    table_name = TABLE_MAP[type_id]
+        # فقط یک record insert/upsert برای تست
+        if data:
+            sample = data[0]  # فقط اولین آیتم
+            query = """
+            INSERT INTO symbol_price (symbol, date, price, volume)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+            price = VALUES(price),
+            volume = VALUES(volume)
+            """
+            params = (SYMBOL, sample["date"], sample["price"], sample["volume"])
+            upsert(query, params)
+            print("✅ Inserted/Updated one record for test.")
+        else:
+            print("⚠️ No data received.")
 
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # نمونه ساده insert/update با ON DUPLICATE KEY
-    for row in data:
-        columns = ", ".join(row.keys())
-        placeholders = ", ".join(["%s"] * len(row))
-        update_assign = ", ".join([f"{col}=VALUES({col})" for col in row.keys()])
-        sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders}) " \
-              f"ON DUPLICATE KEY UPDATE {update_assign}"
-        cursor.execute(sql, list(row.values()))
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-    print(f"✅ Fetched and upserted {len(data)} rows into {table_name}")
-
+    except requests.exceptions.RequestException as e:
+        print("❌ Fetch failed:", e)
+    except Exception as e:
+        print("❌ Insert failed:", e)
 
 if __name__ == "__main__":
-    # تست سریع
-    fetch_br_api(0)  # symbol_price
-    fetch_br_api(1)  # symbol_deals
+    fetch_and_insert()
