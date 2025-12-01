@@ -1,8 +1,10 @@
 # .github/workflows/test_db_connection.yml
-name: Test DB Connection
+name: Test & Daily DB Connection
 
 on:
-  workflow_dispatch:  # اجازه اجرای دستی از GitHub UI
+  workflow_dispatch:       # اجرای دستی
+  schedule:
+    - cron: "0 0 * * *"   # اجرای روزانه ساعت 00:00 UTC
 
 jobs:
   test-connection:
@@ -28,4 +30,39 @@ jobs:
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
           MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
           MYSQL_SSL_CA: ${{ secrets.MYSQL_SSL_CA }}
-        run: python src/db.py
+        run: |
+          python - <<'EOF'
+          import os
+          import mysql.connector
+
+          host = os.environ.get("MYSQL_HOST")
+          port = int(os.environ.get("MYSQL_PORT", 3306))
+          user = os.environ.get("MYSQL_USER")
+          password = os.environ.get("MYSQL_PASSWORD")
+          database = os.environ.get("MYSQL_DATABASE")
+          ca = os.environ.get("MYSQL_SSL_CA")
+
+          ca_path = "/tmp/ca-cert.pem" if ca else None
+          if ca_path:
+              with open(ca_path, "w") as f:
+                  f.write(ca.replace("\\n", "\n"))
+
+          try:
+              conn = mysql.connector.connect(
+                  host=host,
+                  port=port,
+                  user=user,
+                  password=password,
+                  database=database,
+                  ssl_ca=ca_path,
+                  ssl_verify_cert=True if ca_path else False
+              )
+              cur = conn.cursor()
+              cur.execute("SELECT 1 AS test;")
+              print("✅ DB connection test passed:", cur.fetchall())
+              cur.close()
+              conn.close()
+          except mysql.connector.Error as e:
+              print("❌ DB connection failed:", e)
+              exit(1)
+          EOF
