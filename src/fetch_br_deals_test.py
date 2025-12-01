@@ -13,19 +13,18 @@ SYMBOL = "فملی"
 TYPE = 1  # معاملات
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+    "User-Agent": "Mozilla/5.0"
 }
 
 def fetch_deals():
-    symbol_encoded = quote(SYMBOL)   # مهم!! نماد فارسی باید encode شود
-    
-    url = f"{BASE_URL}?key={API_KEY}&type={TYPE}&l18={symbol_encoded}"
+    symbol_encoded = quote(SYMBOL)
+    url = f"{BASE_URL}?key={API_KEY}&type={TYPE}&curl=1&l18={symbol_encoded}"
+
     print("Requesting:", url)
 
     for attempt in range(5):
         try:
-            response = requests.get(url, headers=HEADERS, timeout=10)
+            response = requests.get(url, headers=HEADERS, timeout=20)
             response.raise_for_status()
 
             data = response.json()
@@ -37,7 +36,7 @@ def fetch_deals():
             print("Saved tmp/fetch_deals_test.json")
             print(f"Records: {len(data)}")
             return
-        
+
         except Exception as e:
             print(f"Attempt {attempt+1}/5 failed:", e)
             time.sleep(2)
