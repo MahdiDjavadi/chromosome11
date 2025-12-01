@@ -1,7 +1,7 @@
 # --- Core dependencies ---
-mysql-connector-python>=9.0.0
-python-dotenv>=1.0.1
-requests>=2.32.3
+mysql-connector-python>=9.5.0
+python-dotenv>=1.2.1
+requests>=2.31.0
 
 # --- Optional for data processing ---
 pandas>=2.2.2
