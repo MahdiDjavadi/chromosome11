@@ -28,4 +28,4 @@ jobs:
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
           MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
           MYSQL_SSL_CA: ${{ secrets.MYSQL_SSL_CA }}
-        run: python src/db_connection_ci.py
+        run: python src/db.py
