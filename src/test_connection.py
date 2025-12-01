@@ -1,4 +1,8 @@
 from utils_db import fetch_all
 
-rows = fetch_all("SELECT 1 AS test;")
-print("DB TEST RESULT:", rows)
+if __name__ == "__main__":
+    rows = fetch_all("SELECT 1 AS test;")
+    if rows:
+        print("✅ Test query successful:", rows)
+    else:
+        print("❌ Test query failed.")
