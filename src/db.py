@@ -1,5 +1,8 @@
 import os
 import mysql.connector
+from dotenv import load_dotenv
+
+load_dotenv()  # Load local .env if exists
 
 def get_connection():
     host = os.getenv("MYSQL_HOST")
@@ -11,8 +14,8 @@ def get_connection():
 
     ca_path = None
     if ssl_ca and ssl_ca.strip().startswith("-----BEGIN CERTIFICATE-----"):
-        ssl_ca = ssl_ca.replace("\\n", "\n")
         ca_path = "ca-cert.pem"
+        ssl_ca = ssl_ca.replace("\\n", "\n")
         with open(ca_path, "w") as f:
             f.write(ssl_ca)
 

@@ -14,9 +14,10 @@ def fetch_all(query, params=None):
 def upsert(query, params):
     conn = get_connection()
     if not conn:
-        return
+        return False
     cur = conn.cursor()
     cur.execute(query, params)
     conn.commit()
     cur.close()
     conn.close()
+    return True
