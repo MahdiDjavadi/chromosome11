@@ -1,12 +1,4 @@
-from .db import get_connection
-
-def execute(query, params=None):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(query, params or ())
-    conn.commit()
-    cur.close()
-    conn.close()
+from db import get_connection
 
 def fetch_all(query, params=None):
     conn = get_connection()
@@ -17,5 +9,10 @@ def fetch_all(query, params=None):
     conn.close()
     return rows
 
-def upsert(query, params):
-    execute(query, params)
+def upsert(query, params=None):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(query, params or ())
+    conn.commit()
+    cur.close()
+    conn.close()
