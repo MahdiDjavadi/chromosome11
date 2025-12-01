@@ -3,6 +3,7 @@ __pycache__/
 
 # Environment and secrets
 .env
+*.pem
 
 # OS / IDE junk
 .DS_Store
