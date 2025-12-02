@@ -1,20 +1,21 @@
 import json
 import os
-from src.utils_db import upsert
+from src.db import get_connection
 
-SYMBOL_ID = 1  # فملی
+SYMBOL_ID = 1
+YEAR_FILTER = "1404"
+SYMBOL = "فملی"
+
 
 def load_json(symbol, t):
     path = f"data/{symbol}_{t}.json"
-    if not os.path.exists(path):
-        print(f"❌ File not found: {path}")
-        return None
-    
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
 
 
-def insert_prices(symbol_id, records):
+def insert_prices(conn, symbol_id, records):
     query = """
     REPLACE INTO symbol_price (
         symbol_id, date, time, tno, tvol, tval,
@@ -24,10 +25,13 @@ def insert_prices(symbol_id, records):
         %s, %s, %s, %s, %s, %s,
         %s, %s, %s, %s, %s, %s, %s,
         %s, %s, %s
-    );
+    )
     """
-    for r in records:
-        params = (
+
+    cur = conn.cursor()
+
+    batch = [
+        (
             symbol_id,
             r["date"],
             r["time"],
@@ -45,11 +49,18 @@ def insert_prices(symbol_id, records):
             r["pcc"],
             r["pcp"],
         )
-        upsert(query, params)
-    print("✔️ Prices inserted.")
+        for r in records
+        if r["date"].startswith(YEAR_FILTER)
+    ]
+
+    if batch:
+        cur.executemany(query, batch)
+        conn.commit()
+
+    cur.close()
 
 
-def insert_deals(symbol_id, records):
+def insert_deals(conn, symbol_id, records):
     query = """
     REPLACE INTO symbol_deals (
         symbol_id, date,
@@ -61,10 +72,13 @@ def insert_deals(symbol_id, records):
         %s, %s, %s, %s,
         %s, %s, %s, %s,
         %s, %s, %s, %s
-    );
+    )
     """
-    for r in records:
-        params = (
+
+    cur = conn.cursor()
+
+    batch = [
+        (
             symbol_id,
             r["date"],
             r["Buy_CountI"],
@@ -80,20 +94,24 @@ def insert_deals(symbol_id, records):
             r["Sell_I_Value"],
             r["Sell_N_Value"],
         )
-        upsert(query, params)
-    print("✔️ Deals inserted.")
+        for r in records
+        if r["date"].startswith(YEAR_FILTER)
+    ]
+
+    if batch:
+        cur.executemany(query, batch)
+        conn.commit()
+
+    cur.close()
 
 
 if __name__ == "__main__":
-    symbol = "فملی"
+    conn = get_connection()
 
-    prices = load_json(symbol, 0)
-    deals = load_json(symbol, 1)
+    prices = load_json(SYMBOL, 0)
+    deals = load_json(SYMBOL, 1)
 
-    if prices:
-        insert_prices(SYMBOL_ID, prices)
+    insert_prices(conn, SYMBOL_ID, prices)
+    insert_deals(conn, SYMBOL_ID, deals)
 
-    if deals:
-        insert_deals(SYMBOL_ID, deals)
-
-    print("🎉 All done for فملی!")
+    conn.close()
