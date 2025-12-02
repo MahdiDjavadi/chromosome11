@@ -1,6 +1,6 @@
 import json
 import os
-from utils_db import upsert
+from src.utils_db import upsert
 
 SYMBOL_ID = 1  # فملی
 
