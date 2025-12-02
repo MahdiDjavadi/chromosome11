@@ -1,4 +1,5 @@
 import os
+import json
 import requests
 from dotenv import load_dotenv
 
@@ -20,21 +21,23 @@ def fetch_symbol_data(symbol):
 
     for t in [0, 1]:
         url = f"https://brsapi.ir/Api/Tsetmc/History.php?key={API_KEY}&type={t}&l18={symbol}"
-        
         r = requests.get(url, headers=HEADERS, timeout=30)
         r.raise_for_status()
 
         results[t] = r.json()
 
+        # save json inside /data
+        os.makedirs("data", exist_ok=True)
+        file_path = f"data/{symbol}_{t}.json"
+        
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(results[t], f, ensure_ascii=False, indent=2)
+
+        print(f"✔️ Saved: {file_path}")
+
     return results
 
 
 if __name__ == "__main__":
-    symbol = "فملی"   # مربوط به id = 1
-    data = fetch_symbol_data(symbol)
-
-    print("TYPE 0 (first 2 rows):")
-    print(data[0][:2])
-    
-    print("\nTYPE 1 (first 2 rows):")
-    print(data[1][:2])
+    symbol = "فملی"  # id=1
+    fetch_symbol_data(symbol)
