@@ -1,15 +1,5 @@
 # src/etl.py
 import os
-
-# مسیر ریشه پروژه
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-# مسیر درست symbols.txt داخل data/
-SYMBOLS_FILE = os.path.join(BASE_DIR, "data", "symbols.txt")
-print("Loading symbols from:", SYMBOLS_FILE)
-print("Exists?", os.path.exists(SYMBOLS_FILE))
-
-
 import json
 import time
 import logging
@@ -19,12 +9,17 @@ from urllib.parse import quote
 import backoff
 import requests
 from dotenv import load_dotenv
-
 from src.db import get_connection
 
+# Load .env
 load_dotenv()
 
-# CONFIG (via env or defaults)
+# Paths
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SYMBOLS_FILE = os.getenv("SYMBOLS_FILE", os.path.join(BASE_DIR, "data", "symbols.txt"))
+SYMBOL_IDS_FILE = os.path.join(BASE_DIR, "data", "symbol_ids.json")
+
+# Config
 API_KEY = os.getenv("BRSAPI_API_KEY")
 HEADERS = {
     "User-Agent": os.getenv(
@@ -37,27 +32,23 @@ HEADERS = {
 BASE_URL = "https://brsapi.ir/Api/Tsetmc/History.php"
 YEAR_FILTER = os.getenv("YEAR_FILTER", "1404")
 SAVE_JSON = os.getenv("SAVE_JSON", "true").lower() in ("1", "true", "yes")
-RATE_LIMIT_SECONDS = float(os.getenv("RATE_LIMIT_SECONDS", "0.30"))  # delay between requests
+RATE_LIMIT_SECONDS = float(os.getenv("RATE_LIMIT_SECONDS", "0.30"))
 CURL_FALLBACK = os.getenv("CURL_FALLBACK", "true").lower() in ("1", "true", "yes")
 BATCH_COMMIT_PER_SYMBOL = os.getenv("BATCH_COMMIT_PER_SYMBOL", "true").lower() in ("1", "true", "yes")
-SYMBOLS_FILE = os.getenv("SYMBOLS_FILE", "symbols.txt")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
-# logging
+# Logging
 logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("tsetmc-etl")
 
-print("Loading symbols from:", SYMBOLS_FILE)
-print("Exists?", os.path.exists(SYMBOLS_FILE))
 
-def load_symbols() -> list:
+def load_symbols() -> List[str]:
     env_list = os.getenv("SYMBOLS")
     if env_list:
         return [s.strip() for s in env_list.split(",") if s.strip()]
     if os.path.exists(SYMBOLS_FILE):
         with open(SYMBOLS_FILE, "r", encoding="utf-8") as f:
             symbols = [line.strip() for line in f if line.strip()]
-            print("Loaded symbols:", symbols)
             return symbols
     return []
 
@@ -72,8 +63,6 @@ def fetch_type(symbol: str, t: int) -> List[Dict[str, Any]]:
     resp.raise_for_status()
     data = resp.json()
     if not isinstance(data, list):
-        # Defensive: if API returned a dict with wrapper
-        # try to locate list inside
         for v in data.values() if isinstance(data, dict) else []:
             if isinstance(v, list):
                 return v
@@ -97,7 +86,6 @@ def ensure_numeric(v, cast_type=int, default=None):
 
 def insert_prices(conn, symbol_id: int, records: List[Dict[str, Any]]):
     if not records:
-        logger.debug("No price records for symbol_id=%s", symbol_id)
         return
     query = """
     REPLACE INTO symbol_price (
@@ -117,19 +105,19 @@ def insert_prices(conn, symbol_id: int, records: List[Dict[str, Any]]):
                 symbol_id,
                 r.get("date"),
                 r.get("time"),
-                ensure_numeric(r.get("tno"), int, None),
-                ensure_numeric(r.get("tvol"), int, None),
-                ensure_numeric(r.get("tval"), int, None),
-                ensure_numeric(r.get("pmin"), int, None),
-                ensure_numeric(r.get("pmax"), int, None),
-                ensure_numeric(r.get("py"), int, None),
-                ensure_numeric(r.get("pf"), int, None),
-                ensure_numeric(r.get("pl"), int, None),
-                ensure_numeric(r.get("plc"), int, None),
-                ensure_numeric(r.get("plp"), float, None),
-                ensure_numeric(r.get("pc"), int, None),
-                ensure_numeric(r.get("pcc"), int, None),
-                ensure_numeric(r.get("pcp"), float, None),
+                ensure_numeric(r.get("tno")),
+                ensure_numeric(r.get("tvol")),
+                ensure_numeric(r.get("tval")),
+                ensure_numeric(r.get("pmin")),
+                ensure_numeric(r.get("pmax")),
+                ensure_numeric(r.get("py")),
+                ensure_numeric(r.get("pf")),
+                ensure_numeric(r.get("pl")),
+                ensure_numeric(r.get("plc")),
+                ensure_numeric(r.get("plp"), float),
+                ensure_numeric(r.get("pc")),
+                ensure_numeric(r.get("pcc")),
+                ensure_numeric(r.get("pcp"), float),
             )
         )
     cur = conn.cursor()
@@ -142,7 +130,6 @@ def insert_prices(conn, symbol_id: int, records: List[Dict[str, Any]]):
 
 def insert_deals(conn, symbol_id: int, records: List[Dict[str, Any]]):
     if not records:
-        logger.debug("No deal records for symbol_id=%s", symbol_id)
         return
     query = """
     REPLACE INTO symbol_deals (
@@ -163,18 +150,18 @@ def insert_deals(conn, symbol_id: int, records: List[Dict[str, Any]]):
             (
                 symbol_id,
                 r.get("date"),
-                ensure_numeric(r.get("Buy_CountI"), int, None),
-                ensure_numeric(r.get("Buy_CountN"), int, None),
-                ensure_numeric(r.get("Sell_CountI"), int, None),
-                ensure_numeric(r.get("Sell_CountN"), int, None),
-                ensure_numeric(r.get("Buy_I_Volume"), int, None),
-                ensure_numeric(r.get("Buy_N_Volume"), int, None),
-                ensure_numeric(r.get("Sell_I_Volume"), int, None),
-                ensure_numeric(r.get("Sell_N_Volume"), int, None),
-                ensure_numeric(r.get("Buy_I_Value"), int, None),
-                ensure_numeric(r.get("Buy_N_Value"), int, None),
-                ensure_numeric(r.get("Sell_I_Value"), int, None),
-                ensure_numeric(r.get("Sell_N_Value"), int, None),
+                ensure_numeric(r.get("Buy_CountI")),
+                ensure_numeric(r.get("Buy_CountN")),
+                ensure_numeric(r.get("Sell_CountI")),
+                ensure_numeric(r.get("Sell_CountN")),
+                ensure_numeric(r.get("Buy_I_Volume")),
+                ensure_numeric(r.get("Buy_N_Volume")),
+                ensure_numeric(r.get("Sell_I_Volume")),
+                ensure_numeric(r.get("Sell_N_Volume")),
+                ensure_numeric(r.get("Buy_I_Value")),
+                ensure_numeric(r.get("Buy_N_Value")),
+                ensure_numeric(r.get("Sell_I_Value")),
+                ensure_numeric(r.get("Sell_N_Value")),
             )
         )
     cur = conn.cursor()
@@ -188,8 +175,8 @@ def insert_deals(conn, symbol_id: int, records: List[Dict[str, Any]]):
 def persist_json(symbol: str, t: int, data):
     if not SAVE_JSON:
         return
-    os.makedirs("data", exist_ok=True)
-    path = os.path.join("data", f"{symbol}_{t}.json")
+    os.makedirs(os.path.join(BASE_DIR, "data"), exist_ok=True)
+    path = os.path.join(BASE_DIR, "data", f"{symbol}_{t}.json")
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, ensure_ascii=False, indent=2)
     logger.debug("Saved JSON %s", path)
@@ -206,52 +193,40 @@ def main():
         logger.error("DB connection failed, aborting.")
         return
 
+    symbol_ids_mapping = {}
+    if os.path.exists(SYMBOL_IDS_FILE):
+        with open(SYMBOL_IDS_FILE, "r", encoding="utf-8") as f:
+            symbol_ids_mapping = json.load(f)
+
     try:
         for idx, symbol in enumerate(symbols, start=1):
             logger.info("Processing [%d/%d] %s", idx, len(symbols), symbol)
             try:
-                # fetch both types
                 prices_raw = fetch_type(symbol, 0)
                 time.sleep(RATE_LIMIT_SECONDS)
                 deals_raw = fetch_type(symbol, 1)
                 time.sleep(RATE_LIMIT_SECONDS)
 
-                # persist raw JSON if desired
                 persist_json(symbol, 0, prices_raw)
                 persist_json(symbol, 1, deals_raw)
 
-                # filter by year
                 prices = filter_by_year(prices_raw, YEAR_FILTER)
                 deals = filter_by_year(deals_raw, YEAR_FILTER)
 
-                # map symbol -> symbol_id (user manages symbols table)
-                # Here we assume you have a mapping function or table; for now use provided symbol id env or file mapping
-                # If SYMBOL_IDS mapping exists as JSON file symbol_ids.json, read it; else expect env SYMBOL_ID_<TICKER>
-                symbol_id = None
-                # try env override first
-                env_key = f"SYMBOL_ID_{symbol}"
-                if os.getenv(env_key):
-                    symbol_id = int(os.getenv(env_key))
-                else:
-                    # try a simple mapping file
-                    if os.path.exists(SYMBOL_IDS_FILE):
-                        with open(SYMBOL_IDS_FILE, "r", encoding="utf-8") as f:
-                            mp = json.load(f)
-                            symbol_id = int(mp.get(symbol)) if mp.get(symbol) else None
-
-
-                if symbol_id is None:
-                    # fallback: require SYMBOL_IDS file, else skip
-                    logger.error("No symbol_id found for %s. Provide via env %s or symbol_ids.json", symbol, env_key)
+                symbol_id = symbol_ids_mapping.get(symbol)
+                if not symbol_id:
+                    env_key = f"SYMBOL_ID_{symbol}"
+                    if os.getenv(env_key):
+                        symbol_id = int(os.getenv(env_key))
+                if not symbol_id:
+                    logger.error("No symbol_id found for %s. Skip.", symbol)
                     continue
 
-                # insert using single connection, executemany for batches
                 insert_prices(conn, symbol_id, prices)
                 insert_deals(conn, symbol_id, deals)
 
             except Exception as e:
                 logger.exception("Failed processing symbol %s: %s", symbol, e)
-                # continue with next symbol
                 continue
     finally:
         try:
