@@ -1,5 +1,13 @@
 # src/etl.py
 import os
+
+# همیشه مسیر ریشه پروژه را پیدا کن
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# مسیر فایل نمادها و mapping
+SYMBOLS_FILE = os.path.join(BASE_DIR, "data", "symbols.txt")
+SYMBOL_IDS_FILE = os.path.join(BASE_DIR, "data", "symbol_ids.json")
+
 import json
 import time
 import logging
@@ -220,10 +228,11 @@ def main():
                     symbol_id = int(os.getenv(env_key))
                 else:
                     # try a simple mapping file
-                    if os.path.exists("symbol_ids.json"):
-                        with open("symbol_ids.json", "r", encoding="utf-8") as f:
+                    if os.path.exists(SYMBOL_IDS_FILE):
+                        with open(SYMBOL_IDS_FILE, "r", encoding="utf-8") as f:
                             mp = json.load(f)
                             symbol_id = int(mp.get(symbol)) if mp.get(symbol) else None
+
 
                 if symbol_id is None:
                     # fallback: require SYMBOL_IDS file, else skip
