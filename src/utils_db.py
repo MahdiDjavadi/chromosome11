@@ -1,4 +1,4 @@
-from db import get_connection
+from .db import get_connection
 
 def fetch_all(query, params=None):
     conn = get_connection()
