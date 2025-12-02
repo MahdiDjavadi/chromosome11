@@ -1,10 +1,7 @@
 # src/etl.py
 import os
 
-# همیشه مسیر ریشه پروژه را پیدا کن
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-# مسیر فایل نمادها و mapping
 SYMBOLS_FILE = os.path.join(BASE_DIR, "data", "symbols.txt")
 SYMBOL_IDS_FILE = os.path.join(BASE_DIR, "data", "symbol_ids.json")
 
@@ -45,6 +42,8 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("tsetmc-etl")
 
+print("Loading symbols from:", SYMBOLS_FILE)
+print("Exists?", os.path.exists(SYMBOLS_FILE))
 
 def load_symbols() -> List[str]:
     env_list = os.getenv("SYMBOLS")
@@ -52,7 +51,9 @@ def load_symbols() -> List[str]:
         return [s.strip() for s in env_list.split(",") if s.strip()]
     if os.path.exists(SYMBOLS_FILE):
         with open(SYMBOLS_FILE, "r", encoding="utf-8") as f:
-            return [line.strip() for line in f if line.strip()]
+            symbols = [line.strip() for line in f if line.strip()]
+            print("Loaded symbols:", symbols)
+            return symbols
     return []
 
 
