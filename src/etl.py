@@ -1,9 +1,14 @@
 # src/etl.py
 import os
 
+# مسیر ریشه پروژه
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# مسیر درست symbols.txt داخل data/
 SYMBOLS_FILE = os.path.join(BASE_DIR, "data", "symbols.txt")
-SYMBOL_IDS_FILE = os.path.join(BASE_DIR, "data", "symbol_ids.json")
+print("Loading symbols from:", SYMBOLS_FILE)
+print("Exists?", os.path.exists(SYMBOLS_FILE))
+
 
 import json
 import time
@@ -45,7 +50,7 @@ logger = logging.getLogger("tsetmc-etl")
 print("Loading symbols from:", SYMBOLS_FILE)
 print("Exists?", os.path.exists(SYMBOLS_FILE))
 
-def load_symbols() -> List[str]:
+def load_symbols() -> list:
     env_list = os.getenv("SYMBOLS")
     if env_list:
         return [s.strip() for s in env_list.split(",") if s.strip()]
