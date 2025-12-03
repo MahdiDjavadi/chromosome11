@@ -16,7 +16,7 @@ jobs:
       MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
       MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
       MYSQL_SSL_CA: ${{ secrets.MYSQL_SSL_CA }}
-      BRSAPI_API_KEY: ${{ secrets.BRSAPI_API_KEY }}  # فقط این کافیست
+      BRSAPI_API_KEY: ${{ secrets.BRSAPI_API_KEY }}
       ETL_USER_AGENT: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 
     steps:
@@ -38,4 +38,5 @@ jobs:
 
       - name: Run ETL
         #run: python src/etl.py
-        run: python src/etl_v2.py
+        #run: python src/etl_v2.py
+        run: python src/etl_p1.py
