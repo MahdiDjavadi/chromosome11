@@ -1,23 +1,13 @@
-from .db import get_connection
-
-def fetch_all(query, params=None):
-    conn = get_connection()
-    if not conn:
-        return []
+def fetch_all(conn, query, params=None):
     cur = conn.cursor(dictionary=True)
     cur.execute(query, params or ())
     rows = cur.fetchall()
     cur.close()
-    conn.close()
     return rows
 
-def upsert(query, params):
-    conn = get_connection()
-    if not conn:
-        return False
+def upsert(conn, query, params):
     cur = conn.cursor()
-    cur.execute(query, params)
+    cur.executemany(query, params)
     conn.commit()
     cur.close()
-    conn.close()
     return True
