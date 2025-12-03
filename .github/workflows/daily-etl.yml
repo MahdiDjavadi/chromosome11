@@ -37,4 +37,5 @@ jobs:
         run: python src/db.py
 
       - name: Run ETL
-        run: python src/etl.py
+        #run: python src/etl.py
+        run: python src/etl_v2.py
