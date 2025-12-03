@@ -1,48 +1,31 @@
-name: ETL Run
+# .github/workflows/daily-etl.yml
+name: Daily ETL
 
 on:
-  workflow_dispatch:
-    inputs:
-      symbols-file:
-        description: 'Path to symbols.txt'
-        default: 'data/symbols.txt'
-        required: true
   schedule:
-    - cron: '0 2 * * *'  # هر روز ساعت 2 صبح اجرا می‌شود
+    - cron: "0 3 * * *"
+  workflow_dispatch:
 
 jobs:
   run-etl:
     runs-on: ubuntu-latest
-
-    env:
-      API_KEY: ${{ secrets.BRSAPI_API_KEY }}
-      DB_HOST: ${{ secrets.DB_HOST }}
-      DB_USER: ${{ secrets.DB_USER }}
-      DB_PASS: ${{ secrets.DB_PASS }}
-      DB_NAME: ${{ secrets.DB_NAME }}
-      SYMBOLS_FILE: ${{ github.event.inputs.symbols-file }}
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: "3.11"
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Verify symbols file exists
-        run: |
-          if [ ! -f "${SYMBOLS_FILE}" ]; then
-            echo "Symbols file not found: ${SYMBOLS_FILE}"
-            exit 1
-          fi
+      - name: Install deps
+        run: pip install -r requirements.txt
 
       - name: Run ETL
-        run: |
-          python -m src.etl
+        env:
+          BRSAPI_API_KEY: ${{ secrets.BRSAPI_API_KEY }}
+          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          MYSQL_PORT: ${{ secrets.MYSQL_PORT }}
+          MYSQL_USER: ${{ secrets.MYSQL_USER }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
+          MYSQL_SSL_CA: ${{ secrets.MYSQL_SSL_CA }}
+        run: python -m src.etl

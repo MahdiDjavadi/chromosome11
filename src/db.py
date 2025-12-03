@@ -6,7 +6,7 @@ load_dotenv()  # Load local .env if exists
 
 def get_connection():
     host = os.getenv("MYSQL_HOST")
-    port = int(os.getenv("MYSQL_PORT", 3306))
+    port = int(os.getenv("MYSQL_PORT"))
     user = os.getenv("MYSQL_USER")
     password = os.getenv("MYSQL_PASSWORD")
     database = os.getenv("MYSQL_DATABASE")
