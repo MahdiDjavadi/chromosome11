@@ -2,11 +2,11 @@ name: Daily ETL
 
 on:
   schedule:
-    - cron: "0 2 * * *"  # هر روز ساعت 2 صبح UTC اجرا شود
-  workflow_dispatch:  # امکان اجرای دستی
+    - cron: "0 2 * * *"
+  workflow_dispatch:
 
 jobs:
-  test-and-run-etl:
+  run-etl:
     runs-on: ubuntu-latest
 
     env:
@@ -16,7 +16,8 @@ jobs:
       MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
       MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
       MYSQL_SSL_CA: ${{ secrets.MYSQL_SSL_CA }}
-      BRSAPI_API_KEY: ${{ secrets.BRSAPI_API_KEY }}
+      BRSAPI_API_KEY: ${{ secrets.BRSAPI_API_KEY }}  # فقط این کافیست
+      ETL_USER_AGENT: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 
     steps:
       - name: Checkout repository
@@ -32,11 +33,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-
       - name: Test database connection
-        run: |
-          python src/db.py
+        run: python src/db.py
 
-      - name: Run ETL script
-        run: |
-          python src/etl.py
+      - name: Run ETL
+        run: python src/etl.py
