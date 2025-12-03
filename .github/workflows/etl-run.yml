@@ -1,0 +1,48 @@
+name: ETL Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbols-file:
+        description: 'Path to symbols.txt'
+        default: 'data/symbols.txt'
+        required: true
+  schedule:
+    - cron: '0 2 * * *'  # هر روز ساعت 2 صبح اجرا می‌شود
+
+jobs:
+  run-etl:
+    runs-on: ubuntu-latest
+
+    env:
+      API_KEY: ${{ secrets.BRSAPI_API_KEY }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASS: ${{ secrets.DB_PASS }}
+      DB_NAME: ${{ secrets.DB_NAME }}
+      SYMBOLS_FILE: ${{ github.event.inputs.symbols-file }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify symbols file exists
+        run: |
+          if [ ! -f "${SYMBOLS_FILE}" ]; then
+            echo "Symbols file not found: ${SYMBOLS_FILE}"
+            exit 1
+          fi
+
+      - name: Run ETL
+        run: |
+          python -m src.etl
