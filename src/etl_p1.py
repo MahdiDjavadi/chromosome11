@@ -10,7 +10,7 @@ ROOT_DIR = os.path.dirname(CURRENT_DIR)
 sys.path.insert(0, ROOT_DIR)
 from src.db import get_connection
 
-SYMBOLS_FILE = os.getenv("SYMBOLS_FILE", os.path.join(ROOT_DIR, "data", "symbols.txt"))
+SYMBOLS_FILE = os.getenv("SYMBOLS_FILE", os.path.join(ROOT_DIR, "data", "symbols-5.txt"))
 SYMBOL_IDS_FILE = os.path.join(ROOT_DIR, "data", "symbol_ids.json")
 API_KEY = os.getenv("BRSAPI_API_KEY")
 
