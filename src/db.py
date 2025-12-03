@@ -1,9 +1,10 @@
-# src/db.py
 import os
 import mysql.connector
+from dotenv import load_dotenv
+
+load_dotenv()  # Load local .env if exists
 
 def get_connection():
-    # Read database info directly from environment (GitHub Secrets or OS env)
     host = os.getenv("MYSQL_HOST")
     port = int(os.getenv("MYSQL_PORT"))
     user = os.getenv("MYSQL_USER")
