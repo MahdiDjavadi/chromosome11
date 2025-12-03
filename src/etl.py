@@ -4,13 +4,11 @@ import os
 import json
 import time
 import logging
-from typing import List, Dict, Any
+from typing import List
 from urllib.parse import quote
 
 import backoff
 import requests
-
-# --- Force CI to recognize "src" as package ---
 import sys
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(CURRENT_DIR)
@@ -41,7 +39,6 @@ BATCH_COMMIT = True
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("etl")
 
-
 def load_symbols() -> List[str]:
     if os.getenv("SYMBOLS"):
         return [s.strip() for s in os.getenv("SYMBOLS").split(",") if s.strip()]
@@ -50,6 +47,19 @@ def load_symbols() -> List[str]:
             return [line.strip() for line in f if line.strip()]
     return []
 
+def ensure_symbol_ids(symbols: List[str]) -> dict:
+    """اگر symbol_ids.json موجود نباشد، بسازد و برگرداند mapping"""
+    mapping = {}
+    if os.path.exists(SYMBOL_IDS_FILE):
+        with open(SYMBOL_IDS_FILE, "r", encoding="utf-8") as f:
+            mapping = json.load(f)
+    if not mapping:
+        mapping = {symbol: i+1 for i, symbol in enumerate(symbols)}
+        os.makedirs(os.path.dirname(SYMBOL_IDS_FILE), exist_ok=True)
+        with open(SYMBOL_IDS_FILE, "w", encoding="utf-8") as f:
+            json.dump(mapping, f, ensure_ascii=False, indent=2)
+        logger.info(f"✔️ Created symbol_ids.json with {len(mapping)} symbols")
+    return mapping
 
 @backoff.on_exception(backoff.expo, (requests.exceptions.RequestException,), max_tries=5)
 def fetch_type(symbol: str, t: int):
@@ -59,17 +69,14 @@ def fetch_type(symbol: str, t: int):
     data = resp.json()
     return data if isinstance(data, list) else []
 
-
 def filter_by_year(rows, year):
     return [r for r in rows if isinstance(r.get("date"), str) and r["date"].startswith(year)]
-
 
 def num(v, cast=int):
     try:
         return cast(v)
     except:
         return None
-
 
 def insert_prices(conn, sid, rows):
     if not rows:
@@ -93,7 +100,6 @@ def insert_prices(conn, sid, rows):
     if BATCH_COMMIT:
         conn.commit()
     cur.close()
-
 
 def insert_deals(conn, sid, rows):
     if not rows:
@@ -122,7 +128,6 @@ def insert_deals(conn, sid, rows):
         conn.commit()
     cur.close()
 
-
 def save_json(symbol, t, data):
     if not SAVE_JSON:
         return
@@ -131,22 +136,18 @@ def save_json(symbol, t, data):
     with open(os.path.join(d, f"{symbol}_{t}.json"), "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-
 def main():
     symbols = load_symbols()
     if not symbols:
         logger.error("No symbols found")
         return
 
+    mapping = ensure_symbol_ids(symbols)
+
     conn = get_connection()
     if not conn:
         logger.error("DB connection failed")
         return
-
-    mapping = {}
-    if os.path.exists(SYMBOL_IDS_FILE):
-        with open(SYMBOL_IDS_FILE, "r", encoding="utf-8") as f:
-            mapping = json.load(f)
 
     for i, sym in enumerate(symbols, 1):
         logger.info(f"Processing {i}/{len(symbols)} - {sym}")
@@ -166,9 +167,6 @@ def main():
 
             sid = mapping.get(sym)
             if not sid:
-                env_id = os.getenv(f"SYMBOL_ID_{sym}")
-                sid = int(env_id) if env_id else None
-            if not sid:
                 logger.error(f"No symbol_id for {sym}")
                 continue
 
@@ -184,7 +182,6 @@ def main():
         pass
 
     logger.info("ETL finished.")
-    
 
 if __name__ == "__main__":
     main()
