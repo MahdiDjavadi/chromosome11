@@ -16,6 +16,8 @@ jobs:
       MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
       MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
       MYSQL_SSL_CA: ${{ secrets.MYSQL_SSL_CA }}
+      BRSAPI_API_KEY: ${{ secrets.BRSAPI_API_KEY }}
+      BRS_API_KEY: ${{ secrets.BRS_API_KEY }}
 
     steps:
       - name: Checkout repository
