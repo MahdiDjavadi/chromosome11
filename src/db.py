@@ -1,33 +1,38 @@
 import os
 import mysql.connector
 
-def get_connection_from_env(env):
-    host = env["MYSQL_HOST"]
-    port = int(env.get("MYSQL_PORT", 3306))
-    user = env["MYSQL_USER"]
-    password = env["MYSQL_PASSWORD"]
-    database = env["MYSQL_DATABASE"]
-    ssl_ca = env.get("MYSQL_SSL_CA")
+def get_connection():
+    MYSQL_HOST = os.getenv("MYSQL_HOST")
+    MYSQL_PORT = int(os.getenv("MYSQL_PORT"))
+    MYSQL_USER = os.getenv("MYSQL_USER")
+    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+    MYSQL_DATABASE = os.getenv("MYSQL_DATABASE")
+    MYSQL_SSL_CA = os.getenv("MYSQL_SSL_CA")
 
     ca_path = None
-    if ssl_ca and ssl_ca.strip().startswith("-----BEGIN CERTIFICATE-----"):
-        ca_path = "ca-cert.pem"
-        ssl_ca = ssl_ca.replace("\\n", "\n")
-        with open(ca_path, "w", encoding="utf-8") as f:
-            f.write(ssl_ca)
+    if MYSQL_SSL_CA and MYSQL_SSL_CA.strip().startswith("-----BEGIN CERTIFICATE-----"):
+        ca_path = "/tmp/ca-cert.pem"
+        with open(ca_path, "w") as f:
+            f.write(MYSQL_SSL_CA)
 
     try:
         conn = mysql.connector.connect(
-            host=host,
-            port=port,
-            user=user,
-            password=password,
-            database=database,
+            host=MYSQL_HOST,
+            port=MYSQL_PORT,
+            user=MYSQL_USER,
+            password=MYSQL_PASSWORD,
+            database=MYSQL_DATABASE,
             ssl_ca=ca_path,
-            ssl_verify_cert=True if ca_path else False
+            ssl_verify_cert=True
         )
-        print("✅ Connected to database.")
+        print("✅ Connected to database (CI).")
         return conn
     except mysql.connector.Error as err:
-        print(f"❌ Connection failed: {err}")
+        print(f"❌ Connection failed (CI): {err}")
         return None
+
+
+if __name__ == "__main__":
+    conn = get_connection()
+    if conn:
+        conn.close()
