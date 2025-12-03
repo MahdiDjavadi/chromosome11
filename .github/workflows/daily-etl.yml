@@ -35,6 +35,6 @@ jobs:
         run: |
           python src/db.py
 
-      - name: Run ETL script
-        run: |
-          python src/etl.py  # فرض می‌کنیم فایل ETL شما src/etl.py است
+      #- name: Run ETL script
+        #run: |
+          #python src/etl.py  # فرض می‌کنیم فایل ETL شما src/etl.py است
