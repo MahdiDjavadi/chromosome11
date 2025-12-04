@@ -52,10 +52,11 @@ def get_next_section(total_symbols):
 def load_symbols_from_db():
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT symbol_name, id FROM symbols ORDER BY id")
+    cur.execute("SELECT ticker, id FROM symbols ORDER BY id")  # ← ticker جای symbol_name
     rows = cur.fetchall()
-    cur.close(); conn.close()
-    return [(r[0], r[1]) for r in rows]  # (name, id)
+    cur.close()
+    conn.close()
+    return [(r[0], r[1]) for r in rows]  # (ticker, id)
 
 def build_symbol_json_from_db(pairs):
     m = {name: sid for name, sid in pairs}
