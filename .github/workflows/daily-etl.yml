@@ -3,10 +3,10 @@ name: Daily ETL
 on:
   schedule:
     # زمان‌ها به وقت تهران
-    - cron: "15 11 * * *"  # 21:30 Tehran -> UTC 17:30
+    - cron: "30 11 * * *"  # 21:30 Tehran -> UTC 17:30
     - cron: "15 12 * * *"  # 22:15 Tehran -> UTC 18:15
-    - cron: "15 13 * * *"   # 23:00 Tehran -> UTC 19:00
-    - cron: "15 14 * * *"  # 23:45 Tehran -> UTC 19:45
+    - cron: "00 13 * * *"   # 23:00 Tehran -> UTC 19:00
+    - cron: "45 13 * * *"  # 23:45 Tehran -> UTC 19:45
   workflow_dispatch:
 
 jobs:
