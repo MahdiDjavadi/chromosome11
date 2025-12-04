@@ -24,8 +24,8 @@ RATE = 0.20
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("etl")
 
-SECTION_SIZE = 200
-TOTAL_SECTIONS = 4
+SECTION_SIZE = 100
+TOTAL_SECTIONS = 8
 
 
 # -------------------------
