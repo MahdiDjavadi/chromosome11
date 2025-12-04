@@ -4,8 +4,8 @@ on:
   schedule:
     # زمان‌ها به وقت تهران
     - cron: "30 11 * * *"  # 21:30 Tehran -> UTC 17:30
-    - cron: "45 13 * * *"  # 22:15 Tehran -> UTC 18:15
-    - cron: "55 14 * * *"   # 23:00 Tehran -> UTC 19:00
+    - cron: "05 14 * * *"  # 22:15 Tehran -> UTC 18:15
+    - cron: "15 15 * * *"   # 23:00 Tehran -> UTC 19:00
     # - cron: "00 16 * * *"  # 23:45 Tehran -> UTC 19:45
   workflow_dispatch:
 
