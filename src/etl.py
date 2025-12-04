@@ -1,187 +1,164 @@
-# src/etl.py
+# src/etl.py (ULTRA OPTIMIZED)
 
-import os
-import json
-import time
-import logging
-from typing import List
+import os, json, time, logging, requests, sys
+from datetime import datetime
 from urllib.parse import quote
-
 import backoff
-import requests
-import sys
+
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(CURRENT_DIR)
 sys.path.insert(0, ROOT_DIR)
-
 from src.db import get_connection
 
-# Paths
-SYMBOLS_FILE = os.getenv("SYMBOLS_FILE", os.path.join(ROOT_DIR, "data", "symbols.txt"))
 SYMBOL_IDS_FILE = os.path.join(ROOT_DIR, "data", "symbol_ids.json")
-
 API_KEY = os.getenv("BRSAPI_API_KEY")
+
 HEADERS = {
-    "User-Agent": os.getenv(
-        "ETL_USER_AGENT",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
-    ),
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
 }
 
 BASE_URL = "https://brsapi.ir/Api/Tsetmc/History.php"
-YEAR_FILTER = os.getenv("YEAR_FILTER", "1404")
-SAVE_JSON = os.getenv("SAVE_JSON", "false").lower() in ("1", "true")
-RATE_LIMIT_SECONDS = 0.4
-BATCH_COMMIT = True
+YEAR = "1404"
+MONTHS = {"06","07","08","09","10","11","12"}
+RATE = 0.20
 
-logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
-logger = logging.getLogger("etl")
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("etl")
 
-def load_symbols() -> List[str]:
-    if os.getenv("SYMBOLS"):
-        return [s.strip() for s in os.getenv("SYMBOLS").split(",") if s.strip()]
-    if os.path.exists(SYMBOLS_FILE):
-        with open(SYMBOLS_FILE, "r", encoding="utf-8") as f:
-            return [line.strip() for line in f if line.strip()]
-    return []
+# ---- تقسیم‌بندی اجرای ETL ----
+STATE_FILE = os.path.join(ROOT_DIR, "data", "etl_state.json")
+SECTION_SIZE = 200  # تعداد نمادها در هر بخش
+TOTAL_SECTIONS = 4  # تعداد بخش‌ها
 
-def ensure_symbol_ids(symbols: List[str]) -> dict:
-    """اگر symbol_ids.json موجود نباشد، بسازد و برگرداند mapping"""
-    mapping = {}
-    if os.path.exists(SYMBOL_IDS_FILE):
-        with open(SYMBOL_IDS_FILE, "r", encoding="utf-8") as f:
-            mapping = json.load(f)
-    if not mapping:
-        mapping = {symbol: i+1 for i, symbol in enumerate(symbols)}
-        os.makedirs(os.path.dirname(SYMBOL_IDS_FILE), exist_ok=True)
-        with open(SYMBOL_IDS_FILE, "w", encoding="utf-8") as f:
-            json.dump(mapping, f, ensure_ascii=False, indent=2)
-        logger.info(f"✔️ Created symbol_ids.json with {len(mapping)} symbols")
-    return mapping
+def get_next_section(total_symbols):
+    if os.path.exists(STATE_FILE):
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            state = json.load(f)
+        last = state.get("last_run", 0)
+    else:
+        last = 0
 
-@backoff.on_exception(backoff.expo, (requests.exceptions.RequestException,), max_tries=5)
-def fetch_type(symbol: str, t: int):
+    next_section = (last % TOTAL_SECTIONS) + 1
+    start_idx = (next_section - 1) * SECTION_SIZE + 1
+    end_idx = min(next_section * SECTION_SIZE, total_symbols)
+
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump({"last_run": next_section}, f, ensure_ascii=False, indent=2)
+
+    return start_idx, end_idx
+
+# ---- خواندن نمادها مستقیم از دیتابیس ----
+def load_symbols_from_db():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT symbol_name, id FROM symbols ORDER BY id")
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return [(r[0], r[1]) for r in rows]  # (name, id)
+
+def build_symbol_json_from_db(pairs):
+    m = {name: sid for name, sid in pairs}
+    json.dump(m, open(SYMBOL_IDS_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    return m
+
+@backoff.on_exception(backoff.expo, (requests.exceptions.RequestException,))
+def fetch(symbol, t):
     url = f"{BASE_URL}?key={API_KEY}&type={t}&l18={quote(symbol)}"
-    resp = requests.get(url, headers=HEADERS, timeout=20)
-    resp.raise_for_status()
-    data = resp.json()
-    return data if isinstance(data, list) else []
+    r = requests.get(url, headers=HEADERS, timeout=15)
+    if r.status_code == 400:
+        raise SystemExit(400)
+    r.raise_for_status()
+    d = r.json()
+    return d if isinstance(d, list) else []
 
-def filter_by_year(rows, year):
-    return [r for r in rows if isinstance(r.get("date"), str) and r["date"].startswith(year)]
+def filt(rows):
+    out = []
+    for r in rows:
+        d = r.get("date","")
+        if len(d)>=7 and d[:4]==YEAR and d[5:7] in MONTHS:
+            out.append(r)
+    return out
 
 def num(v, cast=int):
-    try:
-        return cast(v)
-    except:
-        return None
+    try: return cast(v)
+    except: return None
 
-def insert_prices(conn, sid, rows):
-    if not rows:
-        return
-    q = """
-    REPLACE INTO symbol_price (
-      symbol_id,date,time,tno,tvol,tval,pmin,pmax,py,pf,pl,plc,plp,pc,pcc,pcp
-    ) VALUES (
-      %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s
-    )
-    """
-    p = [(sid, r.get("date"), r.get("time"),
-          num(r.get("tno")), num(r.get("tvol")), num(r.get("tval")),
-          num(r.get("pmin")), num(r.get("pmax")), num(r.get("py")),
-          num(r.get("pf")), num(r.get("pl")), num(r.get("plc")),
-          num(r.get("plp"), float), num(r.get("pc")), num(r.get("pcc")),
-          num(r.get("pcp"), float)) for r in rows]
+PRICE_Q = """
+REPLACE INTO symbol_price (
+symbol_id,date,time,tno,tvol,tval,pmin,pmax,py,pf,pl,plc,plp,pc,pcc,pcp
+) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+"""
 
-    cur = conn.cursor()
-    cur.executemany(q, p)
-    if BATCH_COMMIT:
-        conn.commit()
-    cur.close()
-
-def insert_deals(conn, sid, rows):
-    if not rows:
-        return
-    q = """
-    REPLACE INTO symbol_deals (
-      symbol_id,date,
-      Buy_CountI,Buy_CountN,Sell_CountI,Sell_CountN,
-      Buy_I_Volume,Buy_N_Volume,Sell_I_Volume,Sell_N_Volume,
-      Buy_I_Value,Buy_N_Value,Sell_I_Value,Sell_N_Value
-    ) VALUES (
-      %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s
-    )
-    """
-    p = [(sid, r.get("date"),
-          num(r.get("Buy_CountI")), num(r.get("Buy_CountN")),
-          num(r.get("Sell_CountI")), num(r.get("Sell_CountN")),
-          num(r.get("Buy_I_Volume")), num(r.get("Buy_N_Volume")),
-          num(r.get("Sell_I_Volume")), num(r.get("Sell_N_Volume")),
-          num(r.get("Buy_I_Value")), num(r.get("Buy_N_Value")),
-          num(r.get("Sell_I_Value")), num(r.get("Sell_N_Value"))) for r in rows]
-
-    cur = conn.cursor()
-    cur.executemany(q, p)
-    if BATCH_COMMIT:
-        conn.commit()
-    cur.close()
-
-def save_json(symbol, t, data):
-    if not SAVE_JSON:
-        return
-    d = os.path.join(ROOT_DIR, "data")
-    os.makedirs(d, exist_ok=True)
-    with open(os.path.join(d, f"{symbol}_{t}.json"), "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+DEAL_Q = """
+REPLACE INTO symbol_deals (
+symbol_id,date,
+Buy_CountI,Buy_CountN,Sell_CountI,Sell_CountN,
+Buy_I_Volume,Buy_N_Volume,Sell_I_Volume,Sell_N_Volume,
+Buy_I_Value,Buy_N_Value,Sell_I_Value,Sell_N_Value
+) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+"""
 
 def main():
-    symbols = load_symbols()
-    if not symbols:
-        logger.error("No symbols found")
-        return
+    pairs = load_symbols_from_db()
+    total_symbols = len(pairs)
+    start_idx, end_idx = get_next_section(total_symbols)
 
-    mapping = ensure_symbol_ids(symbols)
+    # بخش محدود شده
+    pairs = pairs[start_idx-1 : end_idx]
+    symbols = [p[0] for p in pairs]
+    ids = build_symbol_json_from_db(pairs)
 
     conn = get_connection()
-    if not conn:
-        logger.error("DB connection failed")
-        return
+    cur = conn.cursor()
 
-    for i, sym in enumerate(symbols, 1):
-        logger.info(f"Processing {i}/{len(symbols)} - {sym}")
+    for i,s in enumerate(symbols,1):
+        log.info(f"{i}/{len(symbols)} - {s}")
+        sid = ids[s]
 
         try:
-            raw0 = fetch_type(sym, 0)
-            time.sleep(RATE_LIMIT_SECONDS)
-
-            raw1 = fetch_type(sym, 1)
-            time.sleep(RATE_LIMIT_SECONDS)
-
-            save_json(sym, 0, raw0)
-            save_json(sym, 1, raw1)
-
-            prices = filter_by_year(raw0, YEAR_FILTER)
-            deals = filter_by_year(raw1, YEAR_FILTER)
-
-            sid = mapping.get(sym)
-            if not sid:
-                logger.error(f"No symbol_id for {sym}")
-                continue
-
-            insert_prices(conn, sid, prices)
-            insert_deals(conn, sid, deals)
-
+            raw0 = fetch(s,0); time.sleep(RATE)
+            raw1 = fetch(s,1); time.sleep(RATE)
+        except SystemExit:
+            log.error(f"400 skipped: {s}")
+            continue
         except Exception as e:
-            logger.error(f"Error symbol={sym}: {e}")
+            log.error(f"{s}: {e}")
+            continue
 
-    try:
-        conn.close()
-    except:
-        pass
+        p = filt(raw0)
+        d = filt(raw1)
 
-    logger.info("ETL finished.")
+        if p:
+            rows = [
+                (sid,r["date"],r.get("time"),
+                 num(r.get("tno")),num(r.get("tvol")),num(r.get("tval")),
+                 num(r.get("pmin")),num(r.get("pmax")),num(r.get("py")),
+                 num(r.get("pf")),num(r.get("pl")),num(r.get("plc")),
+                 num(r.get("plp"),float),num(r.get("pc")),num(r.get("pcc")),
+                 num(r.get("pcp"),float))
+                for r in p
+            ]
+            cur.executemany(PRICE_Q, rows)
+
+        if d:
+            rows = [
+                (sid,r["date"],
+                 num(r.get("Buy_CountI")),num(r.get("Buy_CountN")),
+                 num(r.get("Sell_CountI")),num(r.get("Sell_CountN")),
+                 num(r.get("Buy_I_Volume")),num(r.get("Buy_N_Volume")),
+                 num(r.get("Sell_I_Volume")),num(r.get("Sell_N_Volume")),
+                 num(r.get("Buy_I_Value")),num(r.get("Buy_N_Value")),
+                 num(r.get("Sell_I_Value")),num(r.get("Sell_N_Value")))
+                for r in d
+            ]
+            cur.executemany(DEAL_Q, rows)
+
+        conn.commit()
+
+    cur.close()
+    conn.close()
+    log.info("DONE")
 
 if __name__ == "__main__":
     main()

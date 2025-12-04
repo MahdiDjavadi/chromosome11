@@ -2,7 +2,11 @@ name: Daily ETL
 
 on:
   schedule:
-    - cron: "40 21 * * *"
+    # زمان‌ها به وقت تهران
+    - cron: "30 10 * * *"  # 21:30 Tehran -> UTC 17:30
+    - cron: "15 11 * * *"  # 22:15 Tehran -> UTC 18:15
+    - cron: "0 12 * * *"   # 23:00 Tehran -> UTC 19:00
+    - cron: "45 12 * * *"  # 23:45 Tehran -> UTC 19:45
   workflow_dispatch:
 
 jobs:
@@ -37,4 +41,4 @@ jobs:
         run: python src/db.py
 
       - name: Run ETL
-        run: python src/etl_p1.py
+        run: python src/etl.py
