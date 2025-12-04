@@ -1,5 +1,3 @@
-# src/etl.py (ULTRA OPTIMIZED)
-
 import os, json, time, logging, requests, sys
 from datetime import datetime
 from urllib.parse import quote
@@ -26,43 +24,59 @@ RATE = 0.20
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("etl")
 
-# ---- تقسیم‌بندی اجرای ETL ----
-STATE_FILE = os.path.join(ROOT_DIR, "data", "etl_state.json")
-SECTION_SIZE = 200  # تعداد نمادها در هر بخش
-TOTAL_SECTIONS = 4  # تعداد بخش‌ها
+SECTION_SIZE = 200
+TOTAL_SECTIONS = 4
 
+
+# -------------------------
+#   MYSQL STATE HANDLER
+# -------------------------
 def get_next_section(total_symbols):
-    if os.path.exists(STATE_FILE):
-        with open(STATE_FILE, "r", encoding="utf-8") as f:
-            state = json.load(f)
-        last = state.get("last_run", 0)
-    else:
-        last = 0
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT last_section FROM etl_state WHERE id=1")
+    row = cur.fetchone()
+    last = row[0] if row else 0
 
     next_section = (last % TOTAL_SECTIONS) + 1
     start_idx = (next_section - 1) * SECTION_SIZE + 1
     end_idx = min(next_section * SECTION_SIZE, total_symbols)
 
-    with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump({"last_run": next_section}, f, ensure_ascii=False, indent=2)
+    cur.execute(
+        "UPDATE etl_state SET last_section=%s WHERE id=1",
+        (next_section,)
+    )
+    conn.commit()
+
+    cur.close()
+    conn.close()
 
     return start_idx, end_idx
 
-# ---- خواندن نمادها مستقیم از دیتابیس ----
+
+# -------------------------
+#   LOAD SYMBOLS
+# -------------------------
 def load_symbols_from_db():
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT ticker, id FROM symbols ORDER BY id")  # ← ticker جای symbol_name
+    cur.execute("SELECT ticker, id FROM symbols ORDER BY id")
     rows = cur.fetchall()
     cur.close()
     conn.close()
-    return [(r[0], r[1]) for r in rows]  # (ticker, id)
+    return [(r[0], r[1]) for r in rows]
+
 
 def build_symbol_json_from_db(pairs):
     m = {name: sid for name, sid in pairs}
     json.dump(m, open(SYMBOL_IDS_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     return m
 
+
+# -------------------------
+#   API CALL
+# -------------------------
 @backoff.on_exception(backoff.expo, (requests.exceptions.RequestException,))
 def fetch(symbol, t):
     url = f"{BASE_URL}?key={API_KEY}&type={t}&l18={quote(symbol)}"
@@ -73,6 +87,7 @@ def fetch(symbol, t):
     d = r.json()
     return d if isinstance(d, list) else []
 
+
 def filt(rows):
     out = []
     for r in rows:
@@ -81,9 +96,11 @@ def filt(rows):
             out.append(r)
     return out
 
+
 def num(v, cast=int):
     try: return cast(v)
     except: return None
+
 
 PRICE_Q = """
 REPLACE INTO symbol_price (
@@ -100,13 +117,17 @@ Buy_I_Value,Buy_N_Value,Sell_I_Value,Sell_N_Value
 ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
 """
 
+
+# -------------------------
+#   MAIN ETL
+# -------------------------
 def main():
     pairs = load_symbols_from_db()
     total_symbols = len(pairs)
-    start_idx, end_idx = get_next_section(total_symbols)
 
-    # بخش محدود شده
+    start_idx, end_idx = get_next_section(total_symbols)
     pairs = pairs[start_idx-1 : end_idx]
+
     symbols = [p[0] for p in pairs]
     ids = build_symbol_json_from_db(pairs)
 
@@ -160,6 +181,7 @@ def main():
     cur.close()
     conn.close()
     log.info("DONE")
+
 
 if __name__ == "__main__":
     main()
