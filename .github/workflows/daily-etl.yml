@@ -9,8 +9,8 @@ on:
     - cron: "30 21 * * *"  # 01:00 Tehran -> UTC 21:30
     - cron: "40 21 * * *"  # 01:10 Tehran -> UTC 21:40
     - cron: "50 21 * * *"  # 01:20 Tehran -> UTC 21:50
-    # - cron: "00 22 * * *"  # 01:30 Tehran -> UTC 22:00
-    # - cron: "10 22 * * *"  # 01:40 Tehran -> UTC 22:15    
+    - cron: "00 22 * * *"  # 01:30 Tehran -> UTC 22:00
+    - cron: "10 22 * * *"  # 01:40 Tehran -> UTC 22:15    
   workflow_dispatch:
 
 jobs:
