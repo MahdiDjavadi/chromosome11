@@ -19,13 +19,13 @@ HEADERS = {
 BASE_URL = "https://brsapi.ir/Api/Tsetmc/History.php"
 YEAR = "1404"
 MONTHS = {"04","05","06","07","08","09","10","11","12"}
-RATE = 0.20
+RATE = 0.40
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("etl")
 
-SECTION_SIZE = 100
-TOTAL_SECTIONS = 8
+SECTION_SIZE = 300
+TOTAL_SECTIONS = 9
 
 
 # -------------------------
