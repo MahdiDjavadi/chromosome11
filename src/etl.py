@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("etl")
 
 SECTION_SIZE = 300
-TOTAL_SECTIONS = 1
+TOTAL_SECTIONS = 9
 
 
 # -------------------------
