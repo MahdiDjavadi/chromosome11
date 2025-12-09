@@ -3,17 +3,17 @@ name: Daily ETL
 on:
   schedule:
     # زمان‌ها به وقت تهران
-    # change time to start 3: 30 AM Tehran (ETL runs from Saturday to Wednesday, 
-    # Also runs every 20 minutes from 18:40 PM to 21:20 AM Tehran)
-    - cron: "10 15 * * 0-3,6"  # 18:40 Tehran -> UTC 15:10
-    - cron: "30 15 * * 0-3,6"  # 19:00 Tehran -> UTC 15:30
-    - cron: "50 15 * * 0-3,6"  # 19:20 Tehran -> UTC 15:50
-    - cron: "10 16 * * 0-3,6"  # 19:40 Tehran -> UTC 16:10
-    - cron: "30 16 * * 0-3,6"  # 20:00 Tehran -> UTC 16:30
-    - cron: "50 16 * * 0-3,6"  # 20:20 Tehran -> UTC 16:50
-    - cron: "10 17 * * 0-3,6"  # 20:40 Tehran -> UTC 17:10
-    - cron: "30 17 * * 0-3,6"  # 21:00 Tehran -> UTC 17:30
-    - cron: "50 17 * * 0-3,6"  # 21:20 Tehran -> UTC 17:50
+    # change time to start 19:30 PM Tehran (ETL runs from Saturday to Wednesday, 
+    # Also runs every 20 minutes from 19:30 PM to 22:10 AM Tehran)
+    - cron: "00 16 * * 0-3,6"  # 19:30 Tehran -> UTC 16:00
+    - cron: "20 16 * * 0-3,6"  # 19:50 Tehran -> UTC 16:20
+    - cron: "40 16 * * 0-3,6"  # 20:10 Tehran -> UTC 16:40
+    - cron: "00 17 * * 0-3,6"  # 20:30 Tehran -> UTC 17:00
+    - cron: "20 17 * * 0-3,6"  # 20:50 Tehran -> UTC 17:20
+    - cron: "40 17 * * 0-3,6"  # 21:10 Tehran -> UTC 17:40
+    - cron: "00 18 * * 0-3,6"  # 21:30 Tehran -> UTC 18:00
+    - cron: "20 18 * * 0-3,6"  # 21:50 Tehran -> UTC 18:20
+    - cron: "40 18 * * 0-3,6"  # 22:10 Tehran -> UTC 18:40
 
 
   workflow_dispatch:
